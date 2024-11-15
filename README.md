@@ -15,21 +15,9 @@ This project is a web application that allows users to share their secrets anony
 - **Passport.js**: Implemented for user authentication.
   - **Local Strategy**: Used for username and password authentication.
   - **Google OAuth 2.0**: Integrated Google authentication for users.
-- **Session Management**: Managed user sessions using 
-
-express-session
-
-.
-- **Password Hashing**: Secured passwords using 
-
-passport-local-mongoose
-
- for hashing and salting.
-- **Encryption**: Demonstrated the use of 
-
-mongoose-encryption
-
- for encrypting sensitive data (commented out in the code).
+- **Session Management**: Managed user sessions using express-session
+- **Password Hashing**: Secured passwords using passport-local-mongoose for hashing and salting.
+- **Encryption**: Demonstrated the use of mongoose-encryption for encrypting sensitive data (commented out in the code).
 
 ### Frontend Development
 - **EJS (Embedded JavaScript)**: Used as the templating engine to render dynamic content.
