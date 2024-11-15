@@ -3,7 +3,10 @@ const express = require("express");
 const ejs = require("ejs");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
-const encrypt = require("mongoose-encryption");
+//const encrypt = require("mongoose-encryption");
+const md5 = require("md5");
+const bcryptjs = require("bcryptjs");
+const saltRounds = 10;
 
 const app = express();
 
@@ -24,8 +27,8 @@ const userSchema = new mongoose.Schema({
     password: String
 });
 
-// secret key
-userSchema.plugin(encrypt, {secret: process.env.SECRET, encryptedFields: ["password"]});
+// secret key for encryption
+//userSchema.plugin(encrypt, {secret: process.env.SECRET, encryptedFields: ["password"]});
 
 // create a new user model
 const User = new mongoose.model("User", userSchema);
@@ -44,11 +47,62 @@ app.get("/register", async (req, res) => {
     res.render("register"); 
 });
 
+// app.post("/register", async (req, res) => {
+//     try {
+//         const newUser = new User({
+//             email: req.body.username,
+//             password: md5(req.body.password)
+//         });
+//         await newUser.save()
+//         if (newUser.save()) {
+//             res.render("secrets");
+//             console.log("User saved successfully");
+//         } else {
+//             res.send("Error saving user");
+//             console.log("Error saving user");
+//         }
+//     } catch (err) {
+//         console.log(err);
+//     }
+// });
+
+
+
+
+
+// app.post("/login", async (req, res) => {
+//     const username = req.body.username;
+//     const password = md5(req.body.password);
+//     try {
+//         const foundUser = await User.findOne({email: username});
+//         if (foundUser) {
+//             if (foundUser.password === password) {
+//                 res.render("secrets");
+//                 console.log("User found");
+//             } else {
+//                 res.send("Invalid username or password");
+//                 console.log("Invalid username or password");
+//             }
+//         } else {
+//             res.send("User not found");
+//             console.log("User not found");
+//         }
+//     } catch (err) {
+//         console.error("Error occurred during login:", err);
+//         res.status.send("Error occurred during login");
+//     }
+// });
+
+
+
+
+
 app.post("/register", async (req, res) => {
     try {
+        const hashedPassword = await bcryptjs.hash(req.body.password, saltRounds);
         const newUser = new User({
             email: req.body.username,
-            password: req.body.password
+            password: hashedPassword
         });
         await newUser.save()
         if (newUser.save()) {
@@ -64,13 +118,15 @@ app.post("/register", async (req, res) => {
 });
 
 
+
 app.post("/login", async (req, res) => {
     const username = req.body.username;
     const password = req.body.password;
     try {
         const foundUser = await User.findOne({email: username});
         if (foundUser) {
-            if (foundUser.password === password) {
+            const isMatch = await bcryptjs.compare(password, foundUser.password);
+            if (isMatch) {
                 res.render("secrets");
                 console.log("User found");
             } else {
@@ -86,6 +142,7 @@ app.post("/login", async (req, res) => {
         res.status.send("Error occurred during login");
     }
 });
+
 
 
 
