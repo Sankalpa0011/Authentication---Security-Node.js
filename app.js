@@ -10,6 +10,8 @@ const mongoose = require("mongoose");
 const session = require("express-session");
 const passport = require("passport");
 const passportLocalMongoose = require("passport-local-mongoose");
+const GoogleStrategy = require("passport-google-oauth20").Strategy;
+const findOrCreate = require("mongoose-findorcreate");
 
 
 
@@ -40,25 +42,60 @@ mongoose.connect("mongodb://localhost:27017/userDB")
 // Create a new user schema
 const userSchema = new mongoose.Schema({
     email: String,
-    password: String
+    password: String,
+    googleId: String, // for google OAuth
+    secret: String
 });
+
 
 // Add passport-local-mongoose to userSchema 
 userSchema.plugin(passportLocalMongoose);  // hash and salt passwords and to save users into MongoDB database
-
+userSchema.plugin(findOrCreate);
  
+
 // secret key for encryption
 //userSchema.plugin(encrypt, {secret: process.env.SECRET, encryptedFields: ["password"]});
+
 
 // create a new user model
 const User = new mongoose.model("User", userSchema);
 
 
 passport.use(User.createStrategy());
-passport.serializeUser(User.serializeUser());
-passport.deserializeUser(User.deserializeUser());
+
+// passport.serializeUser(User.serializeUser());
+// passport.deserializeUser(User.deserializeUser());
+
+passport.serializeUser( (user, done) => {
+    done(null, user.id);
+});
+passport.deserializeUser(async (id, done) => {
+    try {
+        const user = await User.findById(id);
+        done(null, user);
+    } catch (err) {
+        done(err, null);
+    }
+});
 
 
+// OAuth - OPEN AUTHORIZATION - GOOGLE OAuth 2.0 AUTHENTICATION STRATEGY 
+passport.use(new GoogleStrategy({
+    clientID: process.env.CLIENT_ID,
+    clientSecret: process.env.CLIENT_SECRET,
+    callbackURL: "http://localhost:3000/auth/google/secrets",
+    userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    console.log(profile);
+    User.findOrCreate({ googleId: profile.id }, function (err, user) {
+      return cb(err, user);
+    });
+  }
+));
+
+
+// Routes 
 
 app.get("/", async (req, res) => {
     res.render("home");
@@ -66,11 +103,21 @@ app.get("/", async (req, res) => {
 
 
 
+app.get("/auth/google", 
+    passport.authenticate("google", {scope: ["profile"]})
+);
+app.get("/auth/google/secrets", 
+    passport.authenticate("google", { failureRedirect: "/login" }),
+    function(req, res) {
+      // Successful authentication, redirect to secrets.
+      res.redirect("/secrets");
+    });
+
+
 
 app.get("/login", async (req, res) => {
     res.render("login");
 });
-
 
 
 
@@ -81,12 +128,40 @@ app.get("/register", async (req, res) => {
 
 
 app.get("/secrets", async (req, res) => {
+    try {
+        const foundUsers = await User.find({"secret": {$ne: null}});
+        if (foundUsers) {
+            res.render("secrets", {usersWithSecrets: foundUsers});
+        }
+    } catch (err) {
+        console.log(err);
+    }
+});
+
+
+app.get("/submit", async (req, res) => {
     if (req.isAuthenticated()) {
-        res.render("secrets");
+        res.render("submit");
     } else {
         res.redirect("/login");
     }
 });
+
+app.post("/submit", async (req, res) => {
+    const submittedSecret = req.body.secret;
+    console.log(req.user.id);
+    try {
+        const foundUser = await User.findById(req.user.id);
+        foundUser.secret = submittedSecret;
+        await foundUser.save();
+        console.log("Secret submitted successfully");
+        res.redirect("/secrets");
+    } catch (err) {
+        console.log(err);
+        res.send("Error submitting secret");
+    }
+});
+
 
 
 
@@ -240,6 +315,9 @@ app.post("/login", async (req, res) => {
         }
     });
 });
+
+
+
 
 
 
